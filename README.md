@@ -9,16 +9,3 @@ Proyek ini adalah sebuah **Sistem Manajemen Inventori dan Penjualan** yang diban
 3. **Transaksi Penjualan**: Mencatat penjualan, termasuk detail transaksi.
 4. **Pembayaran**: Menangani pencatatan pembayaran untuk setiap transaksi.
 
-## Prasyarat
-
-- Golang (versi 1.16 atau lebih baru)
-- MySQL
-- Postman (untuk pengujian API)
-
-## Instalasi
-
-1. **Clone Repository**
-
-   ```bash
-   git clone https://github.com/username/inventory_sales.git
-   cd inventory_sales
