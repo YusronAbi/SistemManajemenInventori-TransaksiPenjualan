@@ -16,7 +16,6 @@ func InitDB() {
 		log.Fatal("Error opening database connection:", err)
 	}
 
-	// Mengecek koneksi dengan database
 	if err = DB.Ping(); err != nil {
 		log.Fatal("Database connection error:", err)
 	}
