@@ -1,0 +1,415 @@
+property-inventory/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── cmd/
+│   └── server/
+│       └── main.go
+├── configs/
+│   └── config.yaml
+├── internal/
+│   ├── config/
+│   │   └── config.go
+│   ├── domain/
+│   │   ├── property.go
+│   │   ├── transaction.go
+│   │   └── user.go
+│   ├── repository/
+│   │   └── postgres/
+│   │       ├── property_repository.go
+│   │       ├── transaction_repository.go
+│   │       └── user_repository.go
+│   ├── usecase/
+│   │   ├── property_usecase.go
+│   │   ├── transaction_usecase.go
+│   │   └── user_usecase.go
+│   └── delivery/
+│       ├── http/
+│       │   ├── handler/
+│       │   │   ├── property_handler.go
+│       │   │   ├── transaction_handler.go
+│       │   │   └── user_handler.go
+│       │   └── middleware/
+│       │       ├── auth.go
+│       │       └── logger.go
+│       └── grpc/
+│           └── server.go
+├── pkg/
+│   ├── jwt/
+│   │   └── jwt.go
+│   └── utils/
+│       └── response.go
+├── proto/
+│   └── property/
+│       └── property.proto
+├── migrations/
+│   └── 000001_init_schema.up.sql
+├── Dockerfile
+├── docker-compose.yml
+├── go.mod
+├── go.sum
+└── README.md
+
+Isi file:
+
+1. cmd/server/main.go:
+```go
+package main
+
+import (
+    "log"
+    "net/http"
+
+    "github.com/yourusername/property-inventory/internal/config"
+    "github.com/yourusername/property-inventory/internal/delivery/http/handler"
+    "github.com/yourusername/property-inventory/internal/repository/postgres"
+    "github.com/yourusername/property-inventory/internal/usecase"
+    "github.com/gin-gonic/gin"
+)
+
+func main() {
+    // Load configuration
+    cfg, err := config.Load()
+    if err != nil {
+        log.Fatalf("Failed to load config: %v", err)
+    }
+
+    // Initialize database
+    db, err := postgres.NewConnection(cfg.Database)
+    if err != nil {
+        log.Fatalf("Failed to connect to database: %v", err)
+    }
+
+    // Initialize repositories
+    propertyRepo := postgres.NewPropertyRepository(db)
+    transactionRepo := postgres.NewTransactionRepository(db)
+    userRepo := postgres.NewUserRepository(db)
+
+    // Initialize use cases
+    propertyUseCase := usecase.NewPropertyUseCase(propertyRepo)
+    transactionUseCase := usecase.NewTransactionUseCase(transactionRepo, propertyRepo)
+    userUseCase := usecase.NewUserUseCase(userRepo)
+
+    // Initialize Gin router
+    router := gin.Default()
+
+    // Initialize handlers
+    handler.NewPropertyHandler(router, propertyUseCase)
+    handler.NewTransactionHandler(router, transactionUseCase)
+    handler.NewUserHandler(router, userUseCase)
+
+    // Start server
+    log.Fatal(http.ListenAndServe(cfg.Server.Address, router))
+}
+```
+
+2. internal/domain/property.go:
+```go
+package domain
+
+import (
+    "time"
+)
+
+type Property struct {
+    ID          int64     `json:"id"`
+    Name        string    `json:"name"`
+    Type        string    `json:"type"`
+    Address     string    `json:"address"`
+    Price       float64   `json:"price"`
+    Status      string    `json:"status"`
+    Area        float64   `json:"area"`
+    Bedrooms    int       `json:"bedrooms"`
+    Bathrooms   int       `json:"bathrooms"`
+    Description string    `json:"description"`
+    CreatedAt   time.Time `json:"created_at"`
+    UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type PropertyRepository interface {
+    Create(ctx context.Context, property *Property) error
+    GetByID(ctx context.Context, id int64) (*Property, error)
+    Update(ctx context.Context, property *Property) error
+    Delete(ctx context.Context, id int64) error
+    List(ctx context.Context, filter PropertyFilter) ([]Property, error)
+}
+```
+
+3. internal/repository/postgres/property_repository.go:
+```go
+package postgres
+
+import (
+    "context"
+    "database/sql"
+    
+    "github.com/yourusername/property-inventory/internal/domain"
+)
+
+type propertyRepository struct {
+    db *sql.DB
+}
+
+func NewPropertyRepository(db *sql.DB) domain.PropertyRepository {
+    return &propertyRepository{db: db}
+}
+
+func (r *propertyRepository) Create(ctx context.Context, property *domain.Property) error {
+    query := `
+        INSERT INTO properties (name, type, address, price, status, area, bedrooms, bathrooms, description)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, created_at, updated_at
+    `
+    
+    return r.db.QueryRowContext(
+        ctx,
+        query,
+        property.Name,
+        property.Type,
+        property.Address,
+        property.Price,
+        property.Status,
+        property.Area,
+        property.Bedrooms,
+        property.Bathrooms,
+        property.Description,
+    ).Scan(&property.ID, &property.CreatedAt, &property.UpdatedAt)
+}
+
+// Implementasi method lainnya...
+```
+
+4. internal/delivery/http/handler/property_handler.go:
+```go
+package handler
+
+import (
+    "net/http"
+    "strconv"
+
+    "github.com/gin-gonic/gin"
+    "github.com/yourusername/property-inventory/internal/domain"
+    "github.com/yourusername/property-inventory/internal/usecase"
+)
+
+type PropertyHandler struct {
+    propertyUseCase *usecase.PropertyUseCase
+}
+
+func NewPropertyHandler(r *gin.Engine, pu *usecase.PropertyUseCase) {
+    handler := &PropertyHandler{
+        propertyUseCase: pu,
+    }
+
+    r.POST("/properties", handler.CreateProperty)
+    r.GET("/properties/:id", handler.GetProperty)
+    r.PUT("/properties/:id", handler.UpdateProperty)
+    r.DELETE("/properties/:id", handler.DeleteProperty)
+    r.GET("/properties", handler.ListProperties)
+}
+
+func (h *PropertyHandler) CreateProperty(c *gin.Context) {
+    var property domain.Property
+    if err := c.ShouldBindJSON(&property); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    if err := h.propertyUseCase.CreateProperty(c.Request.Context(), &property); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusCreated, property)
+}
+
+// Implementasi handler lainnya...
+```
+
+5. Dockerfile:
+```dockerfile
+FROM golang:1.19-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server
+
+FROM alpine:3.14
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+COPY --from=builder /app/main .
+COPY --from=builder /app/configs ./configs
+
+EXPOSE 8080
+CMD ["./main"]
+```
+
+6. docker-compose.yml:
+```yaml
+version: '3'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=property_db
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=property_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+```
+
+7. .github/workflows/ci.yml:
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.19
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v2
+      with:
+        version: latest
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: property_test
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.19
+    - name: Run Tests
+      run: go test -v ./...
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+    - name: Deploy
+      run: echo "Deploying..."
+```
+
+8. migrations/000001_init_schema.up.sql:
+```sql
+CREATE TABLE properties (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    address TEXT NOT NULL,
+    price DECIMAL(15,2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    area DECIMAL(10,2) NOT NULL,
+    bedrooms INTEGER NOT NULL,
+    bathrooms INTEGER NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE transactions (
+    id SERIAL PRIMARY KEY,
+    property_id INTEGER REFERENCES properties(id),
+    user_id INTEGER REFERENCES users(id),
+    type VARCHAR(50) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+9. go.mod:
+```go
+module github.com/yourusername/property-inventory
+
+go 1.19
+
+require (
+    github.com/gin-gonic/gin v1.8.1
+    github.com/golang-jwt/jwt v3.2.2+incompatible
+    github.com/lib/pq v1.10.7
+    github.com/spf13/viper v1.15.0
+    golang.org/x/crypto v0.6.0
+)
+```
+
+Untuk menggunakan proyek ini:
+
+1. Clone repository
+2. Install dependencies: `go mod download`
+3. Setup database PostgreSQL
+4. Jalankan migrasi database
+5. Build dan jalankan aplikasi:
+   ```bash
+   docker-compose up --build
+   ```
+
+API akan tersedia di `http://localhost:8080`
+
+Endpoints:
+- POST /properties - Membuat properti baru
+- GET /properties - Mendapatkan daftar properti
+- GET /properties/:id - Mendapatkan detail properti
+- PUT /properties/:id - Mengupdate properti
+- DELETE /properties/:id - Menghapus properti
+
+Dan endpoints serupa untuk transaksi dan user.
+
+Apakah Anda memerlukan penjelasan lebih detail tentang bagian tertentu dari proyek ini?
