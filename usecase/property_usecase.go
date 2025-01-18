@@ -1,3 +1,7 @@
+package usecase
+
+import "context"
+
 type PropertyUseCase struct {
 	propertyRepo    PropertyRepository
 	transactionRepo TransactionRepository
