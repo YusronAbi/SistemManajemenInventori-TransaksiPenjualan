@@ -1,3 +1,11 @@
+package handler
+
+import (
+	"SISTEMMANAJEMENINVENTORYTRANSAKSI/middleware"
+
+	"github.com/gin-gonic/gin"
+)
+
 type PropertyHandler struct {
 	propertyUseCase *usecase.PropertyUseCase
 }
