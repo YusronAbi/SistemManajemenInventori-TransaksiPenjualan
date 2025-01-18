@@ -1,8 +1,7 @@
 package routes
 
 import (
-	"myproject/controllers"
-	"myproject/middleware"
+	"SISTEMMANAJEMENINVENTORYTRANSAKSI/middleware"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
