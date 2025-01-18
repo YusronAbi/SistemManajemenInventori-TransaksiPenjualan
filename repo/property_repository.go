@@ -1,3 +1,7 @@
+package repo
+
+import "context"
+
 type PropertyRepository interface {
 	Create(ctx context.Context, property *Property) error
 	GetByID(ctx context.Context, id int64) (*Property, error)
