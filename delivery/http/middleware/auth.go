@@ -1,26 +1,17 @@
-type AuthMiddleware struct {
-	jwtService jwt.Service
-}
+package middleware
 
-func (am *AuthMiddleware) AuthRequired() gin.HandlerFunc {
+import (
+	"github.com/gin-gonic/gin"
+)
+
+func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
+		token := c.GetHeader("Authorization")
+		if token != "Bearer exampleToken" {
+			c.JSON(401, gin.H{"error": "Unauthorized"})
 			c.Abort()
 			return
 		}
-
-		// Validate JWT token
-		token := strings.Replace(authHeader, "Bearer ", "", 1)
-		claims, err := am.jwtService.ValidateToken(token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
-		c.Set("userID", claims.UserID)
 		c.Next()
 	}
 }
