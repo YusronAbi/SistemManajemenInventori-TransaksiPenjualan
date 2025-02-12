@@ -9,3 +9,5 @@ Proyek ini adalah sebuah **Sistem Manajemen Inventori dan Penjualan** yang diban
 3. **Transaksi Penjualan**: Mencatat penjualan, termasuk detail transaksi.
 4. **Pembayaran**: Menangani pencatatan pembayaran untuk setiap transaksi.
 
+## ERD 
+![Image](https://github.com/user-attachments/assets/29aea898-0fe5-46b0-af00-fee02a9e5513)
