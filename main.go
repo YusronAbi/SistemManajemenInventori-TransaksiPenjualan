@@ -1,23 +1,36 @@
 package main
 
 import (
+	"ecommerce-api/pkg/database"
 	"log"
+	"net/http"
 	"os"
+
+	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	db := config.InitDB()
-	defer config.CloseDB(db)
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 
-	router := gin.Default()
-	routes.SetupRoutes(router, db)
+	db, err := database.InitDB()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
-	port := os.Getenv("PORT")
+	r := mux.NewRouter()
+
+	// Setup routes here
+
+	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	if err := router.Run(":" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
