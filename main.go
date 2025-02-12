@@ -1,18 +1,17 @@
 package main
 
 import (
-	"ecommerce-api/pkg/database"
+	"ECOMERCE-API/database"
+	"ECOMERCE-API/routes"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
@@ -22,10 +21,7 @@ func main() {
 	}
 	defer db.Close()
 
-	r := mux.NewRouter()
-
-	// Setup routes here
-
+	r := routes.SetupRoutes(db)
 	port := os.Getenv("SERVER_PORT")
 	if port == "" {
 		port = "8080"

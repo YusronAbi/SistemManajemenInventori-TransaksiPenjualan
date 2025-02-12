@@ -1,17 +1,31 @@
-package middleware
+package middlewares
 
 import (
-	"github.com/gin-gonic/gin"
+	"ECOMERCE-API/utils"
+	"net/http"
+	"strings"
 )
 
-func AuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.GetHeader("Authorization")
-		if token != "Bearer exampleToken" {
-			c.JSON(401, gin.H{"error": "Unauthorized"})
-			c.Abort()
+func AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
 			return
 		}
-		c.Next()
-	}
+
+		tokenParts := strings.Split(authHeader, " ")
+		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			http.Error(w, "Invalid token format", http.StatusUnauthorized)
+			return
+		}
+
+		token, err := utils.ValidateToken(tokenParts[1])
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

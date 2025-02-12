@@ -5,24 +5,34 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      - mysql
     environment:
-      - DB_HOST=db
-      - DB_USER=postgres
-      - DB_PASSWORD=password
-      - DB_NAME=property_inventory
-      - JWT_SECRET=your_jwt_secret
-
-  db:
-    image: postgres:13
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=property_inventory
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=ecommerce_db
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - .:/app
+    networks:
+      - ecommerce-network
+
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=ecommerce_db
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./migrations/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - ecommerce-network
 
 volumes:
-  postgres_data:
+  mysql-data:
+
+networks:
+  ecommerce-network:
+    driver: bridge
