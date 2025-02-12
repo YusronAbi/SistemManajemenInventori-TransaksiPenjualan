@@ -1,4 +1,4 @@
-# Sistem Manajemen Inventori dan Penjualan
+# Sistem Manajemen Inventori Transaksi Penjualan
 
 Proyek ini adalah sebuah **Sistem Manajemen Inventori dan Penjualan** yang dibangun menggunakan **Golang** dengan framework **Gin**. Sistem ini mencakup pengelolaan produk, kategori, serta transaksi penjualan. API ini memungkinkan admin untuk menambah, mengupdate, dan menghapus data produk dan kategori, serta mencatat transaksi penjualan.
 
