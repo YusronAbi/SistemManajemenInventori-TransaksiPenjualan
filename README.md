@@ -12,5 +12,5 @@ Proyek ini adalah sebuah **Sistem Manajemen Inventori dan Transaksi Penjualan** 
 ## ERD 
 ![Image](https://github.com/user-attachments/assets/29aea898-0fe5-46b0-af00-fee02a9e5513)
 
-## POSTMAN
+## CRUD
 https://documenter.getpostman.com/view/26920342/2sAYXBHftr
